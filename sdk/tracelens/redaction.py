@@ -22,12 +22,37 @@ from .models import CaptureMode
 
 MASK = "[REDACTED]"
 
-#: Key names whose values are masked regardless of content.
-SECRET_KEY_PATTERN = re.compile(
-    r"(api[_-]?key|secret|password|passwd|token|authorization|auth|credential"
-    r"|private[_-]?key|access[_-]?key|session[_-]?id|cookie|ssn|card[_-]?number)",
-    re.IGNORECASE,
+#: Key segments that make a value secret. Matched against whole segments, not
+#: as substrings: an LLM span's ``prompt_tokens`` must survive while
+#: ``access_token`` must not. Substring matching gets this backwards and
+#: destroys the most common useful metadata in an AI trace.
+SECRET_SEGMENTS = frozenset(
+    {
+        "apikey",
+        "auth",
+        "authorization",
+        "cookie",
+        "credential",
+        "credentials",
+        "passphrase",
+        "passwd",
+        "password",
+        "pwd",
+        "secret",
+        "secrets",
+        "ssn",
+        "token",
+    }
 )
+
+#: ``key`` on its own is too common to mask (a cache key, a dict key), so it
+#: only counts as secret next to one of these.
+KEY_QUALIFIERS = frozenset(
+    {"access", "api", "encryption", "private", "public", "secret", "signing"}
+)
+
+_SEGMENT_SPLIT = re.compile(r"[^A-Za-z0-9]+")
+_CAMEL_SPLIT = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 #: Value shapes that are masked regardless of the key they sit under.
 SECRET_VALUE_PATTERNS = (
@@ -42,8 +67,22 @@ SECRET_VALUE_PATTERNS = (
 MAX_DEPTH = 12
 
 
+def segments(key: str) -> set[str]:
+    """Split a key into lowercase words across ``_``, ``-``, and camelCase."""
+    parts: list[str] = []
+    for chunk in _SEGMENT_SPLIT.split(key):
+        parts.extend(_CAMEL_SPLIT.split(chunk))
+    return {p.lower() for p in parts if p}
+
+
 def looks_secret(key: str) -> bool:
-    return bool(SECRET_KEY_PATTERN.search(key))
+    """Whether a key's value should be masked based on its name alone."""
+    found = segments(key)
+    if found & SECRET_SEGMENTS:
+        return True
+    if "key" in found and found & KEY_QUALIFIERS:
+        return True
+    return "card" in found and bool(found & {"number", "no", "num"})
 
 
 def scrub_text(text: str) -> str:

@@ -429,3 +429,32 @@ def test_redaction_survives_deeply_nested_payloads():
     cursor["api_key"] = "secret"
 
     redact(payload, CaptureMode.REDACTED)  # must not recurse without bound
+
+
+@pytest.mark.parametrize(
+    ("key", "secret"),
+    [
+        ("api_key", True),
+        ("apiKey", True),
+        ("APIKey", True),
+        ("access_token", True),
+        ("token", True),
+        ("Authorization", True),
+        ("private_key", True),
+        ("card_number", True),
+        ("password", True),
+        # These must survive: they are the useful metadata on an LLM span.
+        ("tokens", False),
+        ("prompt_tokens", False),
+        ("completion_tokens", False),
+        ("author", False),
+        ("key", False),
+        ("cache_key", False),
+        ("query", False),
+        ("top_k", False),
+    ],
+)
+def test_secret_key_matching_is_segment_exact(key, secret):
+    from tracelens.redaction import looks_secret
+
+    assert looks_secret(key) is secret
