@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tracelens"
+version = "0.1.0"
+description = "Failure forensics for multi-stage AI pipelines: trace, detect, and locate the first point of divergence."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2.9",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+backend = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "python-dotenv>=1.0",
+]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.setuptools.packages.find]
+where = ["sdk", "backend"]
+include = ["tracelens*", "app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["sdk/tests", "backend/tests", "tests"]
+pythonpath = ["sdk", "backend", "."]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:tracelens.*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "frontend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["tracelens", "app"]
+mypy_path = "sdk:backend"
+ignore_missing_imports = true
+disallow_untyped_defs = false
