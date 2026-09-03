@@ -42,8 +42,14 @@ UNRELATED_DOC = {
 class TraceFactory:
     """Builds a trace one stage at a time on a deterministic clock."""
 
-    def __init__(self, name: str = "rag-query", project: str = "demo") -> None:
-        self.trace = Trace(name=name, project=project, pipeline="rag", start_time=T0)
+    def __init__(
+        self,
+        name: str = "rag-query",
+        project: str = "demo",
+        started_at: datetime = T0,
+    ) -> None:
+        self.origin = started_at
+        self.trace = Trace(name=name, project=project, pipeline="rag", start_time=started_at)
         self._cursor = 0.0
 
     def add(
@@ -59,7 +65,7 @@ class TraceFactory:
         status: SpanStatus | None = None,
         gap_s: float = 0.0,
     ) -> Span:
-        start = T0 + timedelta(seconds=self._cursor + gap_s)
+        start = self.origin + timedelta(seconds=self._cursor + gap_s)
         end = start + timedelta(seconds=duration_s)
         self._cursor += gap_s + duration_s
         span = Span(
@@ -77,7 +83,7 @@ class TraceFactory:
         return self.trace.add_span(span)
 
     def finish(self, status: SpanStatus | None = None) -> Trace:
-        self.trace.end_time = T0 + timedelta(seconds=self._cursor)
+        self.trace.end_time = self.origin + timedelta(seconds=self._cursor)
         self.trace.status = status or (SpanStatus.ERROR if self.trace.failed else SpanStatus.OK)
         return self.trace
 
