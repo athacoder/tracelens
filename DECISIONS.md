@@ -100,3 +100,14 @@ a single attribute beyond its name — no owner, no retention policy, no setting
 so a table would add two joins to every trace query and buy nothing. The composite
 indexes on `(project, start_time)` and `(pipeline, start_time)` make the grouped
 queries cheap. Promote them to real tables the moment either grows an attribute.
+
+## D-010 — No Redis or worker service in the container stack
+**Date:** 2026-09-03
+**Decision:** `docker-compose.yml` runs three services at most: PostgreSQL, the API,
+and the web UI. No Redis, no queue, no worker.
+**Reason:** Follows D-003. Forensic analysis of one trace is a bounded in-memory
+pass, and the measured cost is reported on every report as `analysis_ms` — 4.8 ms
+mean across the 112-case benchmark. A queue would add a service to operate, a
+failure mode to debug, and a source of eventual consistency in the dashboard, in
+exchange for removing 5 ms from a request. The measurement is in the repository,
+so the day it stops being true the evidence to revisit this will already exist.
