@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from tracelens.redaction import segments
+
 #: Words carrying no discriminative weight when comparing a question to a
 #: document. Deliberately short: an aggressive stop list starts deleting the
 #: domain terms that make a retrieval match meaningful.
@@ -170,6 +172,67 @@ def flatten_text(value: Any, _depth: int = 0) -> str:
     if isinstance(value, list | tuple | set):
         return " ".join(flatten_text(v, _depth + 1) for v in value)
     return str(value)
+
+
+#: Key segments naming something a stage measured about its own work rather
+#: than content it carried. Excluded when checking whether a value was altered
+#: in transit: a stage that reports chunk_count or prompt_characters alongside
+#: its output has not invented those numbers, and counting them as content
+#: makes every properly instrumented stage look like it corrupted data.
+#:
+#: Filtered by key name rather than by type on purpose. An earlier version
+#: skipped every standalone number, which silenced the genuine case of a tool
+#: returning {"days_remaining": 12} — in a tool result, the numbers are the
+#: payload.
+MEASUREMENT_KEY_SEGMENTS = frozenset(
+    {
+        "bytes",
+        "characters",
+        "chars",
+        "count",
+        "duration",
+        "elapsed",
+        "index",
+        "latency",
+        "len",
+        "length",
+        "ms",
+        "offset",
+        "seq",
+        "sequence",
+        "size",
+        "tokens",
+    }
+)
+
+
+def is_measurement_key(key: str) -> bool:
+    """Whether a field name denotes a measurement rather than content."""
+    return bool(segments(key) & MEASUREMENT_KEY_SEGMENTS)
+
+
+def flatten_content(value: Any, _depth: int = 0) -> str:
+    """Render a payload's content, dropping fields that are self-measurements.
+
+    Used by the checks that ask "did this stage alter a value it was handed?",
+    where a stage's own instrumentation counts must not be mistaken for the
+    data flowing through it.
+    """
+    if _depth > 8 or value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool | int | float):
+        return str(value)
+    if isinstance(value, dict):
+        return " ".join(
+            flatten_content(item, _depth + 1)
+            for key, item in value.items()
+            if not is_measurement_key(str(key))
+        )
+    if isinstance(value, list | tuple | set):
+        return " ".join(flatten_content(item, _depth + 1) for item in value)
+    return ""
 
 
 def unsupported_items(claim_text: str, source_text: str, extractor: Any) -> set[str]:

@@ -20,6 +20,15 @@ from .divergence import (
     collect_candidates,
     find_first_divergence,
 )
+from .llm import (
+    PROMPT_VERSION,
+    AnthropicProvider,
+    LLMProvider,
+    MockProvider,
+    SemanticAnalysis,
+    build_brief,
+    get_provider,
+)
 from .report import (
     REMEDIATION,
     RootCauseReport,
@@ -27,14 +36,23 @@ from .report import (
     generate_root_cause_report,
 )
 from .scoring import RootCauseCandidate, rank_failure_candidates
+from .semantic import SemanticForensicResult, analyse_semantically
 
 __all__ = [
+    "PROMPT_VERSION",
     "REMEDIATION",
+    "AnthropicProvider",
+    "LLMProvider",
+    "MockProvider",
+    "SemanticAnalysis",
+    "SemanticForensicResult",
     "DivergenceReport",
     "RootCauseCandidate",
     "RootCauseReport",
     "SpanAssessment",
     "Verdict",
+    "analyse_semantically",
+    "build_brief",
     "build_evidence_chain",
     "collect_candidates",
     "direct_dependencies",
@@ -42,6 +60,7 @@ __all__ = [
     "downstream_of",
     "find_first_divergence",
     "generate_root_cause_report",
+    "get_provider",
     "rank_failure_candidates",
     "shares_data",
     "validate_stage_transition",

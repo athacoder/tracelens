@@ -14,9 +14,9 @@ from typing import Any
 
 from tracelens.models import Severity, Span, Stage, Trace
 
-from ..detection.payloads import documents_of, final_answer_span, query_of
+from ..detection.payloads import documents_of, final_answer_span, query_of, source_material
 from ..evaluation.evaluators import evaluate_relevance
-from ..evaluation.text import flatten_text, numbers
+from ..evaluation.text import flatten_content, numbers
 from .models import Invariant, InvariantViolation
 
 
@@ -217,13 +217,28 @@ def retrieved_context_relevant(
 
 
 def tool_results_not_contradicted(severity: Severity = Severity.HIGH) -> Invariant:
-    """A number a tool returned must not be replaced by a different one.
+    """A tool's value must not be replaced by one no source supports.
 
-    Distinguishes "the answer omitted the tool result" (legitimate: a model may
-    summarise) from "the answer states a different value than the tool
-    returned" (a contradiction of a source of truth).
+    Three things have to be separated here, and the obvious rule — "the answer
+    must repeat one of the tool's numbers" — conflates them:
+
+    * The answer omits the tool result. Legitimate: a model may summarise.
+    * The answer quotes a *different* fact from the same documents. Also
+      legitimate, and common: a lookup returns the refund window while the
+      question was about refund speed. This is what made the rule fire on
+      healthy runs before it was tightened.
+    * The answer states a number that the tool contradicts and that no
+      retrieved document supports. Only this is a contradiction.
+
+    So a violation requires both that none of the tool's values survived and
+    that the answer is asserting something ungrounded. Values read only from
+    prose, never from standalone numeric fields, since those are the counts and
+    sizes a stage reports about its own work.
     """
-    description = "numeric values returned by tools must not be contradicted downstream"
+    description = (
+        "a numeric value returned by a tool must not be replaced downstream by one that "
+        "no retrieved source supports"
+    )
 
     def check(trace: Trace) -> list[InvariantViolation]:
         tool_spans = [s for s in trace.stage_spans(Stage.TOOL) if not s.failed]
@@ -231,15 +246,20 @@ def tool_results_not_contradicted(severity: Severity = Severity.HIGH) -> Invaria
         if not tool_spans or answer_span is None:
             return []
 
-        answer_text = flatten_text(answer_span.outputs)
-        answer_numbers = numbers(answer_text)
+        answer_numbers = numbers(flatten_content(answer_span.outputs))
+        if not answer_numbers:
+            return []
+        grounded = numbers(source_material(trace))
         violations = []
 
         for span in tool_spans:
-            tool_numbers = numbers(flatten_text(span.outputs))
+            tool_numbers = numbers(flatten_content(span.outputs))
             if not tool_numbers or tool_numbers & answer_numbers:
                 # Either the tool returned nothing numeric, or at least one of
                 # its values survived. Neither is a contradiction.
+                continue
+            if answer_numbers <= grounded:
+                # The answer quotes a different fact from the same sources.
                 continue
             violations.append(
                 InvariantViolation(
@@ -247,8 +267,9 @@ def tool_results_not_contradicted(severity: Severity = Severity.HIGH) -> Invaria
                     description=description,
                     severity=severity,
                     summary=(
-                        f"{answer_span.name} states {', '.join(sorted(answer_numbers)) or 'no'} "
-                        f"where {span.name} returned {', '.join(sorted(tool_numbers))}"
+                        f"{answer_span.name} states {', '.join(sorted(answer_numbers))}, "
+                        f"which neither {span.name} (which returned "
+                        f"{', '.join(sorted(tool_numbers))}) nor any retrieved source supports"
                     ),
                     span_id=answer_span.span_id,
                     stage=answer_span.stage,
