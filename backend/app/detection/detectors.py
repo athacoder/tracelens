@@ -23,7 +23,7 @@ from ..evaluation.evaluators import (
     evaluate_faithfulness,
     evaluate_relevance,
 )
-from ..evaluation.text import currency_amounts, dates, flatten_text, numbers
+from ..evaluation.text import currency_amounts, dates, flatten_content, flatten_text, numbers
 from .models import Evidence, EvidenceKind, FailureCandidate, FailureCategory
 from .payloads import (
     answer_of,
@@ -66,6 +66,14 @@ DEFAULT_STAGE_SCHEMAS: dict[Stage, StageSchema] = {
 LATENCY_DOMINANCE = 0.60
 LATENCY_FLOOR_MS = 500.0
 LATENCY_BASELINE_MULTIPLIER = 3.0
+
+#: Stages that transform a value they were handed rather than originating one.
+#: A number that goes into one of these and comes out different has been
+#: altered by that stage, which is a self-contained, checkable failure.
+#: Retrieval and the model are excluded because they legitimately introduce
+#: values that were not in their input; prompt building is excluded because
+#: dropping context is already reported as missing information.
+TRANSFORM_STAGES = frozenset({Stage.CHUNKING, Stage.TOOL, Stage.POSTPROCESSING, Stage.VALIDATION})
 
 
 # -- 1. execution failures ------------------------------------------------
@@ -411,10 +419,11 @@ def detect_semantic_inconsistency(trace: Trace) -> list[FailureCandidate]:
 
     Two shapes. A model whose answer asserts facts absent from its own prompt
     is inconsistent with its evidence even if the evidence was perfect — that
-    is the model-level failure. A post-processor that changes a number it was
-    handed is inconsistent with its input by definition — that is the
-    post-processing failure. Separating them is what lets the diagnosis for
-    scenario B differ from scenario C.
+    is the model-level failure. A transforming stage that changes a number it
+    was handed is inconsistent with its input by definition — that is the
+    chunker, the tool, or the post-processor corrupting data in transit.
+    Separating them is what lets the diagnosis for scenario B differ from
+    scenario C.
     """
     candidates: list[FailureCandidate] = []
 
@@ -423,7 +432,7 @@ def detect_semantic_inconsistency(trace: Trace) -> list[FailureCandidate]:
             continue
         if span.stage is Stage.LLM:
             candidates.extend(_llm_inconsistency(span))
-        elif span.stage in (Stage.POSTPROCESSING, Stage.VALIDATION):
+        elif span.stage in TRANSFORM_STAGES:
             candidates.extend(_transformation_inconsistency(span))
 
     return candidates
@@ -474,9 +483,14 @@ def _llm_inconsistency(span: Span) -> list[FailureCandidate]:
 
 
 def _transformation_inconsistency(span: Span) -> list[FailureCandidate]:
-    """A stage that altered a value it was only supposed to pass through."""
-    before = flatten_text(span.inputs)
-    after = flatten_text(span.outputs)
+    """A stage that altered a value it was only supposed to pass through.
+
+    Compares prose only. A stage that reports chunk_count or prompt_characters
+    alongside its output has not invented those numbers, and counting them as
+    content flags every properly instrumented stage.
+    """
+    before = flatten_content(span.inputs)
+    after = flatten_content(span.outputs)
     if not before or not after:
         return []
 
