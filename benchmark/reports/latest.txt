@@ -18,9 +18,9 @@ Localisation (did it name the right stage?)
 
 Analysis latency
 --------------------------------------------------------------
-  Mean                    10.71 ms
-  Median                  8.22 ms
-  p95                     20.83 ms
+  Mean                    4.70 ms
+  Median                  4.28 ms
+  p95                     6.86 ms
 
 Per failure class
 --------------------------------------------------------------
