@@ -63,3 +63,28 @@ is disabled by default (`TRACELENS_LLM_PROVIDER=mock`).
 **Reason:** CLAUDE.md §10.3, §29, and §16. Benchmark numbers must be reproducible and
 must not depend on a paid API. The measured accuracy reported in the README is the
 deterministic engine's, so it can be reproduced by anyone who clones the repository.
+
+## D-007 — Build the forensic core before the API and database
+**Date:** 2026-09-02
+**Decision:** Implement phases 5-8 (detection, invariants, first-divergence,
+scoring) before phases 3-4 (ingestion API, persistence), then build the API once
+with its forensic endpoints already present.
+**Reason:** CLAUDE.md §13 lists the phases in a different order, and §44 permits
+deviation that materially improves the work. The forensic engine is pure functions
+over the Phase 1 model and depends on nothing from the API or the database, while
+the API's `/failures` and `/root-cause` endpoints depend entirely on it. Building
+the API first would mean writing it twice. Each phase still lands as its own
+tested commit, so the increment size is unchanged. The phase acceptance criteria
+are unchanged.
+
+## D-008 — Detectors report calibrated-by-construction confidence, not certainty
+**Date:** 2026-09-02
+**Decision:** Every detector returns a `confidence` in [0, 1] whose meaning is
+fixed by how the evidence was obtained: 1.0 only for directly observed facts (a
+span carries an exception), 0.5-0.8 for deterministic rule violations, below 0.5
+for heuristics with no baseline (latency without history).
+**Reason:** CLAUDE.md §5 requires detectors to be able to say confidence = 0.61
+rather than pretend certainty, and §8 forbids calling an uncalibrated score a
+probability. Anchoring the number to evidence provenance makes it comparable
+across detectors, which is what ranking in Phase 8 needs, without claiming a
+statistical calibration the project has not done.
