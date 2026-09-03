@@ -8,6 +8,7 @@ from .database import (
     get_db,
     get_engine,
     session_scope,
+    stamp_alembic_head,
 )
 from .models import (
     Base,
@@ -38,4 +39,5 @@ __all__ = [
     "get_db",
     "get_engine",
     "session_scope",
+    "stamp_alembic_head",
 ]

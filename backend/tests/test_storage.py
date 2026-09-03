@@ -413,3 +413,78 @@ def test_ingested_at_is_recorded(session):
     row = session.get(TraceRow, trace.trace_id)
     assert row.ingested_at is not None
     assert row.ingested_at.replace(tzinfo=UTC) <= datetime.now(UTC)
+
+
+# -- alembic interoperability --------------------------------------------
+
+
+def test_create_all_stamps_the_alembic_revision(tmp_path):
+    """Regression: the app and Alembic must agree on what exists.
+
+    create_all() used to build the schema without recording a revision, so a
+    database created by running the app (or seed_demo) had every table and an
+    empty alembic_version. The next `alembic upgrade head` then started from
+    base and died with "table traces already exists". CI never caught it
+    because CI only ever migrates a database nothing has touched.
+    """
+    from app.storage.database import alembic_head_revision, create_all, drop_all
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'stamped.db'}", future=True)
+    create_all(engine)
+
+    with engine.begin() as connection:
+        stamped = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+
+    assert stamped is not None
+    assert stamped == alembic_head_revision()
+
+    drop_all(engine)
+    engine.dispose()
+
+
+def test_the_head_revision_is_read_from_the_migration_scripts():
+    # Hard-coding it would let a new migration silently leave this behind.
+    from app.storage.database import alembic_head_revision
+
+    assert alembic_head_revision() == "0001"
+
+
+def test_stamping_twice_does_not_duplicate_the_row(tmp_path):
+    from app.storage.database import create_all, stamp_alembic_head
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'twice.db'}", future=True)
+    create_all(engine)
+    stamp_alembic_head(engine)
+
+    with engine.begin() as connection:
+        rows = connection.execute(text("SELECT version_num FROM alembic_version")).all()
+
+    assert len(rows) == 1
+    engine.dispose()
+
+
+def test_drop_all_removes_the_stamp(tmp_path):
+    from app.storage.database import create_all, drop_all
+    from sqlalchemy import create_engine, inspect
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'dropped.db'}", future=True)
+    create_all(engine)
+    drop_all(engine)
+
+    assert inspect(engine).get_table_names() == []
+    engine.dispose()
+
+
+def test_stamping_is_never_fatal(tmp_path, monkeypatch):
+    # A database that works but is unstamped beats one that refuses to start.
+    from app.storage import database
+    from sqlalchemy import create_engine
+
+    monkeypatch.setattr(database, "alembic_head_revision", lambda: None)
+    engine = create_engine(f"sqlite:///{tmp_path / 'nostamp.db'}", future=True)
+
+    database.create_all(engine)  # must not raise
+    assert database.stamp_alembic_head(engine) is None
+    engine.dispose()

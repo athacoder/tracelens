@@ -61,7 +61,7 @@ def engine():
         future=True,
     )
     database.configure(engine)
-    database.create_all(engine)
+    database.create_all(engine, stamp=False)
     yield engine
     database.drop_all(engine)
     engine.dispose()

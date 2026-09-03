@@ -39,7 +39,7 @@ def client():
         future=True,
     )
     database.configure(engine)
-    database.create_all(engine)
+    database.create_all(engine, stamp=False)
 
     from app.main import create_app
 
