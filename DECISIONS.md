@@ -88,3 +88,15 @@ rather than pretend certainty, and §8 forbids calling an uncalibrated score a
 probability. Anchoring the number to evidence provenance makes it comparable
 across detectors, which is what ranking in Phase 8 needs, without claiming a
 statistical calibration the project has not done.
+
+## D-009 — Projects and pipelines are derived, not tables
+**Date:** 2026-09-02
+**Decision:** `projects` and `pipelines` are computed by grouping the `traces`
+table on its `project` and `pipeline` columns rather than existing as their own
+tables with foreign keys.
+**Reason:** CLAUDE.md §4 lists both among the tables the schema should support,
+and §26 forbids complexity that is not yet justified. Neither entity currently has
+a single attribute beyond its name — no owner, no retention policy, no settings —
+so a table would add two joins to every trace query and buy nothing. The composite
+indexes on `(project, start_time)` and `(pipeline, start_time)` make the grouped
+queries cheap. Promote them to real tables the moment either grows an attribute.
