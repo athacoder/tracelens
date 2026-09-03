@@ -434,3 +434,36 @@ def test_the_failure_breakdown_counts_by_category_and_stage(client, ingest):
     rows = client.get("/api/v1/failures/breakdown").json()
 
     assert rows == [{"category": "retrieval_failure", "stage": "retrieval", "count": 2}]
+
+
+# -- semantic layer -------------------------------------------------------
+
+
+def test_semantic_analysis_explains_the_stored_diagnosis(client, ingest):
+    trace = retrieval_failure_trace()
+    ingest(trace)
+    body = client.post(f"/api/v1/traces/{trace.trace_id}/semantic").json()
+
+    assert body["provider"] == "mock"
+    assert body["prompt_version"]
+    assert body["analysis"]["likely_root_cause"] == "retrieval"
+    assert body["disagrees_with_deterministic"] is False
+
+
+def test_semantic_analysis_on_an_unknown_trace_is_404(client):
+    assert client.post(f"/api/v1/traces/{MISSING}/semantic").status_code == 404
+
+
+def test_semantic_analysis_requires_a_deterministic_report_first(client, ingest):
+    # Ingested without analysis, so there is nothing for the model to explain.
+    trace = healthy_trace()
+    response = client.post(
+        "/api/v1/traces",
+        content=trace.model_dump_json(),
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 202
+    client.post(f"/api/v1/traces/{trace.trace_id}/analyse")
+
+    body = client.post(f"/api/v1/traces/{trace.trace_id}/semantic").json()
+    assert body["provider"] == "mock"

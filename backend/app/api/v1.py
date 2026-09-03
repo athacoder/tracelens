@@ -19,7 +19,7 @@ from tracelens.models import Span, SpanStatus, Stage, Trace
 
 from ..core.config import get_settings
 from ..detection.models import FailureCandidate
-from ..forensics import RootCauseReport
+from ..forensics import RootCauseReport, SemanticForensicResult, analyse_semantically, get_provider
 from ..schemas.api import (
     EventIngestRequest,
     HealthResponse,
@@ -283,6 +283,29 @@ def analyse(trace_id: str, session: DbSession) -> RootCauseReport:
     if report is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"trace {trace_id} not found")
     return report
+
+
+@router.post(
+    "/traces/{trace_id}/semantic",
+    response_model=SemanticForensicResult,
+    tags=["forensics"],
+)
+def semantic_analysis(trace_id: str, session: DbSession) -> SemanticForensicResult:
+    """Explain the stored diagnosis in prose, using the configured provider.
+
+    A POST rather than a GET: with a real provider this spends money and is not
+    cacheable or idempotent. The deterministic report remains authoritative —
+    when the model names a different stage the response records the
+    disagreement rather than replacing the diagnosis.
+    """
+    _require_trace(session, trace_id)
+    report = _repository(session).get_report(trace_id)
+    if report is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"trace {trace_id} has not been analysed; POST to /traces/{trace_id}/analyse first",
+        )
+    return analyse_semantically(report, get_provider(get_settings().llm_provider))
 
 
 @router.delete("/traces/{trace_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["traces"])
