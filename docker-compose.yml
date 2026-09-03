@@ -1,0 +1,75 @@
+# The local TraceLens stack.
+#
+#   docker compose up --build     start everything
+#   docker compose down           stop, keeping the database
+#   docker compose down -v        stop and delete the database volume
+#
+# Three services and nothing else. There is no Redis and no worker, because
+# forensic analysis of one trace is a bounded in-memory pass that runs inside
+# the request (D-003) — a queue here would add a component to operate and a
+# failure mode to debug in exchange for nothing measured.
+
+name: tracelens
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tracelens
+      POSTGRES_PASSWORD: tracelens
+      POSTGRES_DB: tracelens
+    ports:
+      - "5432:5432"
+    volumes:
+      - tracelens-db:/var/lib/postgresql/data
+    healthcheck:
+      # The API waits on this, so it must test readiness to serve, not just
+      # that the process started.
+      test: ["CMD-SHELL", "pg_isready -U tracelens -d tracelens"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://tracelens:tracelens@db:5432/tracelens
+      CORS_ORIGINS: http://localhost:3000
+      # The default path makes no paid API calls. Set TRACELENS_LLM_PROVIDER
+      # to "anthropic" and supply ANTHROPIC_API_KEY to enable the optional
+      # semantic layer.
+      TRACELENS_LLM_PROVIDER: ${TRACELENS_LLM_PROVIDER:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Migrations run here rather than in the image's CMD so a restarted
+    # container converges the schema instead of assuming someone ran them.
+    command: >-
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+      args:
+        # Baked into the client bundle, so it is the address the browser uses.
+        # The compose service name "api" does not resolve outside the network.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    environment:
+      # Read by the server components, which run inside the network and can
+      # reach the API by service name.
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  tracelens-db:
