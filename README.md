@@ -183,6 +183,27 @@ uvicorn app.main:app --reload                         # API on :8000
 npm --prefix frontend install && npm --prefix frontend run dev   # UI on :3000
 ```
 
+### In VS Code
+
+Open the folder and press **F5**. The Run panel has:
+
+| Configuration | Does |
+|---|---|
+| `TraceLens: full stack` | API on :8000 and dashboard on :3000 together |
+| `API: uvicorn (reload)` | API only, with breakpoints |
+| `Web: Next.js dev` | dashboard only |
+| `Example: RAG pipeline (broken / healthy)` | the example, diagnosed inline |
+| `Benchmark: all scenarios` | the full 112-case run |
+| `Seed demo database` | 42 synthetic traces |
+| `Pytest: current file` | debug the test file you have open |
+
+`Ctrl+Shift+B` runs lint, typecheck, and tests in sequence. Individual tasks
+(`test`, `format`, `migrate`, `benchmark`, `frontend: build`) are under
+**Tasks: Run Task**.
+
+Recommended extensions are in `.vscode/extensions.json`; VS Code offers to
+install them on first open.
+
 Or with containers:
 
 ```bash

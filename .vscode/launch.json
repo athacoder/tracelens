@@ -1,0 +1,81 @@
+{
+  // Run and debug configurations. Press F5, or pick one from the Run panel.
+  // "TraceLens: full stack" starts the API and the dashboard together.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API: uvicorn (reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--reload", "--port", "8000"],
+      "cwd": "${workspaceFolder}",
+      "env": { "DATABASE_URL": "sqlite:///./tracelens.db" },
+      "console": "integratedTerminal",
+      // Without this, stepping into a breakpoint lands in library code.
+      "justMyCode": true
+    },
+    {
+      "name": "Web: Next.js dev",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/frontend"
+    },
+    {
+      "name": "Example: RAG pipeline (broken)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/rag_pipeline/main.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Example: RAG pipeline (healthy)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/examples/rag_pipeline/main.py",
+      "args": ["--healthy"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Benchmark: all scenarios",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "benchmark.run",
+      "args": ["--all"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Seed demo database",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "benchmark.seed_demo",
+      "args": ["--reset", "--questions", "3"],
+      "cwd": "${workspaceFolder}",
+      "env": { "DATABASE_URL": "sqlite:///./tracelens.db" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      // False here on purpose: when a test fails you usually want to step
+      // into the application code it called.
+      "justMyCode": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "TraceLens: full stack",
+      "configurations": ["API: uvicorn (reload)", "Web: Next.js dev"],
+      "stopAll": true
+    }
+  ]
+}

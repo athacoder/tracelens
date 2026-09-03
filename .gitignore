@@ -36,5 +36,13 @@ next-env.d.ts
 Thumbs.db
 desktop.ini
 .idea/
-.vscode/
+
+# Editor settings are personal, but the run configurations are not: they are
+# how someone who clones this repository starts it. Track those four, ignore
+# whatever else VS Code writes here.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
 *.swp
