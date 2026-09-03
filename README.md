@@ -2,13 +2,10 @@
 
 **Find the stage where an AI pipeline first went wrong — and the evidence that clears the ones after it.**
 
+[![CI](https://github.com/athacoder/tracelens/actions/workflows/ci.yml/badge.svg)](https://github.com/athacoder/tracelens/actions/workflows/ci.yml)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Tests 448](https://img.shields.io/badge/tests-448%20passing-brightgreen)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
-
-> The CI badge is intentionally absent: this repository has no remote yet, and a
-> badge pointing at a workflow that has never run would be decoration, not
-> evidence. Add it once `.github/workflows/ci.yml` has executed.
 
 ---
 
@@ -163,7 +160,7 @@ are in [DECISIONS.md](DECISIONS.md).
 ## Installation
 
 ```bash
-git clone <your-remote>/tracelens.git
+git clone https://github.com/athacoder/tracelens.git
 cd tracelens
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[backend,dev]"
@@ -305,7 +302,9 @@ kind of tool.
   against the live API in this environment; the mock provider is the tested,
   default path.
 - **Container images have not been built.** The Docker daemon would not start
-  here, so `docker compose config` validates but the images are unverified.
+  in the development environment, so `docker compose config` validates but the
+  images themselves are unverified. Everything else in this list has now been
+  exercised by CI, including migrations against a real PostgreSQL 16.
 
 ## Future work
 

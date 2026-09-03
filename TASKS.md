@@ -25,7 +25,7 @@ Evidence means a verified command output, not an assertion.
 | T-017 | Docker compose stack (Phase 17) | P1 | done | T-004 | compose config validates | `docker compose config` validates; images NOT built (no daemon) |
 | T-018 | Documentation + README (Phase 18) | P0 | done | T-012 | claims match evidence | README + 4 docs; every number re-verified before writing |
 | T-019 | End-to-end acceptance flow (§36) | P0 | done | all | one e2e test | 7 tests in tests/integration/test_acceptance.py |
-| T-020 | GitHub remote + push | P0 | blocked | user action | remote verified | `gh` not installed, no credential helper; see PROGRESS.md for the two unblock paths |
+| T-020 | GitHub remote + push | P0 | done | user action | remote verified | pushed 2026-09-03; `git ls-remote` confirms remote main == local HEAD `685ba63` |
 | T-021 | Build and run the container images | P1 | blocked | Docker daemon | `docker compose up` serves the stack | compose config validates; daemon would not start in this environment |
-| T-022 | Verify CI actually passes | P0 | blocked | T-020 | green workflow run | workflow written, every step run locally, never executed by Actions |
-| T-023 | Tag v1.0.0 | P1 | blocked | T-020, T-022 | tag + release | section 35 requires green CI first |
+| T-022 | Verify CI actually passes | P0 | done | T-020 | green workflow run | run 33777838556, all 4 jobs success, incl. PostgreSQL migrations |
+| T-023 | Tag v1.0.0 | P1 | todo | T-020, T-022 | tag + release | every section 35 gate now passes; awaiting a decision to tag |

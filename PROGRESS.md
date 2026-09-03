@@ -2,18 +2,18 @@
 
 _Only verified state is recorded here._
 
-**Current milestone:** All 18 phases implemented. Feature-complete locally.
-**Current blocker:** GitHub remote — see below. Nothing else is blocked.
-**Next action:** create the remote, push every branch, then verify CI actually
-passes before tagging `v1.0.0` (section 35 requires a green CI, which cannot be
-demonstrated without a remote).
+**Current milestone:** All 18 phases implemented, pushed, and green in CI.
+**Current blocker:** None. One item remains unverified (container images).
+**Next action:** optionally tag `v1.0.0` — every section 35 gate now passes.
 
 ## Environment (verified 2026-09-03)
 - Repo root: `C:\Users\Lenovo\Desktop\projects\TraceLens`
 - Python 3.14.6 in `.venv`; project installed editable (`pip install -e ".[backend,dev]"`)
 - Node v24.16.0; `frontend/` dependencies installed, lockfile committed
 - Docker CLI 29.5.3 present; **daemon would not start in this environment**
-- `gh` CLI: **not installed**. `git config credential.helper`: **unset**.
+- `gh` CLI not installed, and not needed: Git Credential Manager is configured
+  at `--system` scope (an earlier note here checked only `--global` and wrongly
+  concluded no helper existed)
 
 ## Phases
 
@@ -66,23 +66,24 @@ printed inside every generated report so it cannot be separated from the number.
 `docs: add README, architecture, methodology, SDK, and benchmark guides`
 
 ## Last push
-**None.** No remote exists. See below.
+`main` -> https://github.com/athacoder/tracelens on 2026-09-03, verified with
+`git ls-remote --heads origin main`: remote SHA `685ba63` matches local HEAD.
+All seven feature branches pushed as well, so the branch history is visible.
 
-## Blocker detail — GitHub
-`gh --version` -> command not found. No git credential helper is configured and
-no remote exists, so a remote repository cannot be created or pushed to from
-this session. All work is committed locally on a clean history of feature
-branches merged into `main`; every branch pushes cleanly once a remote exists.
+## CI — verified green
+Run `33777838556` on `main`, all four jobs succeeded on the first attempt:
 
-Unblock with either:
+| Job | Result |
+|---|---|
+| Lint, types, tests | success |
+| Migrations (SQLite and PostgreSQL) | success |
+| Forensic benchmark | success |
+| Frontend build | success |
 
-1. install GitHub CLI, `gh auth login`, then
-   `gh repo create tracelens --public --source . --remote origin --push`, or
-2. create an empty `tracelens` repository on GitHub, then
-   `git remote add origin <url> && git push -u origin main`.
-
-Section 35 also requires CI to be green before tagging `v1.0.0`. The workflow
-has never executed, so that gate is genuinely unmet, not merely unrecorded.
+The migrations job is the valuable one: it applied every migration up and down
+against a real PostgreSQL 16 service and then asserted the API's health check
+returned `database_ok: true` against Postgres. That path could not be exercised
+locally, so CI is the first place it has ever run.
 
 ## Known limitations (verified, not speculative)
 - **Container images were never built.** The Docker daemon would not start
@@ -91,8 +92,6 @@ has never executed, so that gate is genuinely unmet, not merely unrecorded.
 - **The Anthropic provider was never called.** It is written against the
   official SDK with structured output and is exercised only through an injected
   fake; the mock provider is the tested default path.
-- **CI has never run.** Every command in the workflow was executed locally
-  first, but the workflow itself is unproven.
 - Semantic checks are lexical, not embedding-based (D-002): paraphrase sharing
   no content words with its source reads as ungrounded.
 - Latency detection has no historical baseline unless one is supplied, so it
