@@ -53,5 +53,23 @@ services:
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
+  web:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+      args:
+        # Baked into the client bundle, so it is the address the browser uses.
+        # The compose service name "api" does not resolve outside the network.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    environment:
+      # Read by the server components, which run inside the network and can
+      # reach the API by service name.
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   tracelens-db:
